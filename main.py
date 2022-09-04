@@ -1,4 +1,5 @@
 import argparse  # Module to integrate Python code with command-line interfaces
+import json
 
 import pandas as pd
 import numpy as np
@@ -55,9 +56,12 @@ def diff_pd(old_df, new_df, idx_col):
     return out_data
 
 
-def compare_excel(path1, path2, out_path, sheet_name, index_col_name=None, **kwargs):
+def compare_excel(path1, path2, out_path, sheet_name, index_col_name=None, header_map=None, **kwargs):
     old_df = pd.read_excel(path1, sheet_name=sheet_name, **kwargs)
     new_df = pd.read_excel(path2, sheet_name=sheet_name, **kwargs)
+    if header_map:
+        headers = get_header_map(header_map)
+        replace_excel_header(old_df, headers)
     diff = diff_pd(old_df, new_df, index_col_name)
     with pd.ExcelWriter(out_path) as writer:
         for sname, data in diff.items():
@@ -65,9 +69,24 @@ def compare_excel(path1, path2, out_path, sheet_name, index_col_name=None, **kwa
     print(f"Differences saved in {out_path}")
 
 
+def get_header_map(headers_path):
+    with open(headers_path, 'r', encoding="utf-8") as f:
+        load_dict = json.load(f)
+        return load_dict
+
+
 def replace_excel_header(dataframe, headers_map):
+    """
+    replace the src excels headers if they have different header name
+    :param dataframe:
+    :param headers_map:
+    :return:
+    """
     dataframe.rename(columns=headers_map, inplace=True)
 
+
+# if __name__ == '__main__':
+#     test()
 
 if __name__ == '__main__':
     cfg = argparse.ArgumentParser(
@@ -78,6 +97,7 @@ if __name__ == '__main__':
     cfg.add_argument("path1", help="Fist Excel file")
     cfg.add_argument("path2", help="Second Excel file")
     cfg.add_argument("sheetname", help="Name of the sheet to compare.")
+    cfg.add_argument("--header-map", help="Path of header map.")
     cfg.add_argument("-c", "--index-column", help="Name of the column with unique row identifier",
                      required=True)
     cfg.add_argument("-o", "--output-path", help="Path of the comparison results",
@@ -87,4 +107,4 @@ if __name__ == '__main__':
     opt = cfg.parse_args()
 
     compare_excel(opt.path1, opt.path2, opt.output_path, opt.sheetname, opt.index_column,
-                  skiprows=opt.skiprows)
+                  header_map=opt.header_map, skiprows=opt.skiprows)
